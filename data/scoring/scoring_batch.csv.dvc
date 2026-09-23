@@ -1,0 +1,5 @@
+outs:
+- md5: ac95d1c0534837c7f14ad8a986da99e4
+  size: 12795
+  hash: md5
+  path: scoring_batch.csv
