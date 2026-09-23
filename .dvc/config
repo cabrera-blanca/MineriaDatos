@@ -1,4 +1,7 @@
 [core]
-    remote = local_storage
+    remote = dagshub
 ['remote "local_storage"']
     url = ../../dvc-remote-local
+['remote "dagshub"']
+    url = https://dagshub.com/luciac996/MineriaDatos.dvc
+    auth = basic
