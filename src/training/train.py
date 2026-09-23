@@ -60,6 +60,36 @@ def data_version(raw_path: str) -> str:
     return "unknown"
 
 
+def register_model_version(run_id: str, logged_uri: str, name: str, tags: dict):
+    """Registra el modelo probando varias fuentes: algunos servidores (p. ej. DagsHub) no soportan
+    la resolución de `runs:/` de MLflow 3, así que se cae a la URI del modelo logueado y luego al
+    path de artefactos del run."""
+    client = mlflow.MlflowClient()
+    sources = [f"runs:/{run_id}/model", logged_uri, f"{client.get_run(run_id).info.artifact_uri}/model"]
+    last_err = None
+    for src in sources:
+        try:
+            if src.startswith("runs:/"):
+                mv = mlflow.register_model(src, name, tags=tags)
+            else:
+                client.create_registered_model(name) if not _exists(client, name) else None
+                mv = client.create_model_version(name, src, run_id=run_id, tags=tags)
+            print(f"Fuente de registro usada: {src}")
+            return mv
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+            print(f"No se pudo registrar desde {src}: {type(e).__name__}")
+    raise last_err
+
+
+def _exists(client, name: str) -> bool:
+    try:
+        client.get_registered_model(name)
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def main() -> None:
     cfg = load_params()
     d, t = cfg["data"], cfg["train"]
@@ -76,6 +106,7 @@ def main() -> None:
 
     ginfo, dver = git_info(), data_version(d["raw_path"])
     results = []
+    logged_uris = {}  # run_id -> URI del modelo logueado (MLflow 3)
 
     for m in cfg["models"]:
         est, scale = make_estimator(m["type"], m["params"], seed)
@@ -106,9 +137,10 @@ def main() -> None:
                     mlflow.log_artifact(p, "plots")
 
             sig = infer_signature(X_tr.head(50), pipe.predict_proba(X_tr.head(50)))
-            mlflow.sklearn.log_model(pipe, name="model", signature=sig, input_example=X_tr.head(3),
+            info = mlflow.sklearn.log_model(pipe, name="model", signature=sig, input_example=X_tr.head(3),
                                      serialization_format="cloudpickle")
 
+            logged_uris[run.info.run_id] = info.model_uri
             results.append({"run_id": run.info.run_id, "name": m["name"], "type": m["type"], "threshold": thr,
                             "cv_roc_auc": (roc := classification_metrics(y_tr, oof, 0.5)["roc_auc"]),
                             "cv_f2_tuned": classification_metrics(y_tr, oof, thr)["f2"],
@@ -124,10 +156,9 @@ def main() -> None:
     # Selección del candidato: mejor ROC-AUC de CV (nunca test)
     best = res.iloc[0]
     print(f"\nCandidato: {best['name']} (run {best['run_id']})")
-    model_uri = f"runs:/{best['run_id']}/model"
-    mv = mlflow.register_model(model_uri, t["registered_model_name"],
-                               tags={"source_run_id": best["run_id"], "threshold": f"{best['threshold']:.2f}",
-                                     "data_md5": dver, "git_commit": ginfo["git_commit"]})
+    mv = register_model_version(best["run_id"], logged_uris[best["run_id"]], t["registered_model_name"],
+                                {"source_run_id": best["run_id"], "threshold": f"{best['threshold']:.2f}",
+                                 "data_md5": dver, "git_commit": ginfo["git_commit"]})
     client = mlflow.MlflowClient()
     client.set_registered_model_alias(t["registered_model_name"], "candidate", mv.version)
     client.set_model_version_tag(t["registered_model_name"], mv.version, "selection_criterion",
