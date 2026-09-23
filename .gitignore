@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.env
+*.env
+# MLflow local
+mlflow.db
+mlruns/
+mlartifacts/
+# DVC gestiona los datos (ver .dvc / dvc.lock)
+/data/raw/*.csv
+/data/production/*.csv
+/data/scoring/*.csv
+/data/processed/*
+!/data/processed/.gitkeep

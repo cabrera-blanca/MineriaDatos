@@ -1,0 +1,14 @@
+# Versiones con las que se desarrolló y ejecutó la Entrega 1 (Python 3.12)
+pandas==3.0.6
+numpy==2.5.3
+scikit-learn==1.9.1
+mlflow==3.16.1
+dvc==3.67.1
+dagshub>=0.3.30
+PyYAML==6.0.3
+matplotlib==3.11.2
+seaborn==0.13.2
+pytest==9.1.1
+nbconvert
+nbformat
+ipykernel

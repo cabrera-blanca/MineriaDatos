@@ -1,0 +1,21 @@
+{
+  "package_name": "ISTEA_Proyecto_Churn_Datos",
+  "package_version": "1.0",
+  "generated_for": "Laboratorio de Minería de Datos - ISTEA",
+  "historical": {
+    "rows": 7043,
+    "columns": 21,
+    "target_positive_rate": 0.2637,
+    "missing_TotalCharges": 26
+  },
+  "production_current": {
+    "rows": 2500,
+    "columns": 20,
+    "target_included": false
+  },
+  "scoring_batch": {
+    "rows": 100,
+    "columns": 20,
+    "target_included": false
+  }
+}
