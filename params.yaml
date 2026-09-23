@@ -1,0 +1,30 @@
+data:
+  raw_path: data/raw/customer_churn_historical.csv
+  train_path: data/processed/train.csv
+  test_path: data/processed/test.csv
+  target: Churn
+  id_col: customerID
+  test_size: 0.2
+  seed: 42
+
+train:
+  cv_folds: 5
+  scoring_primary: roc_auc        # criterio de selección (sobre CV, nunca sobre test)
+  beta_threshold: 1.5             # F-beta para elegir threshold (recall pesa más que precision)
+  experiment_name: customer-churn
+  registered_model_name: customer-churn-classifier
+
+risk_levels:                       # umbrales de riesgo sobre probabilidad de churn
+  low_max: 0.18                    # = threshold del candidato
+  high_min: 0.50
+
+models:
+  - {name: dummy_prior, type: dummy, params: {strategy: prior}}
+  - {name: logreg_C0.01, type: logreg, params: {C: 0.01}}
+  - {name: logreg_C0.1, type: logreg, params: {C: 0.1}}
+  - {name: logreg_C1, type: logreg, params: {C: 1.0}}
+  - {name: logreg_C1_balanced, type: logreg, params: {C: 1.0, class_weight: balanced}}
+  - {name: rf_d5, type: rf, params: {n_estimators: 300, max_depth: 5, min_samples_leaf: 10}}
+  - {name: rf_d10, type: rf, params: {n_estimators: 300, max_depth: 10, min_samples_leaf: 10}}
+  - {name: rf_d10_balanced, type: rf, params: {n_estimators: 300, max_depth: 10, min_samples_leaf: 10, class_weight: balanced}}
+  - {name: gb_d3, type: gb, params: {n_estimators: 200, learning_rate: 0.05, max_depth: 3}}

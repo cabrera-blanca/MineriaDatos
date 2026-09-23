@@ -1,0 +1,26 @@
+schema: '2.0'
+stages:
+  split:
+    cmd: python -m src.data.split
+    deps:
+    - path: data/raw/customer_churn_historical.csv
+      hash: md5
+      md5: 178571792c566f067e3d16b5fb913026
+      size: 982638
+    - path: src/data/split.py
+      hash: md5
+      md5: fa6d5acb62118e0ccadf8b8ed0588189
+      size: 933
+    params:
+      params.yaml:
+        data.seed: 42
+        data.test_size: 0.2
+    outs:
+    - path: data/processed/test.csv
+      hash: md5
+      md5: abcc381a0cb5f92fcb20ae3f246e3f61
+      size: 196137
+    - path: data/processed/train.csv
+      hash: md5
+      md5: 2adb13f8282e1274e481c6370dc30a2b
+      size: 786762

@@ -1,0 +1,12 @@
+stages:
+  split:
+    cmd: python -m src.data.split
+    deps:
+      - src/data/split.py
+      - data/raw/customer_churn_historical.csv
+    params:
+      - data.test_size
+      - data.seed
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
