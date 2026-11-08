@@ -88,7 +88,18 @@ DagsHub ni del modelo real, así que se ejecutan en cualquier máquina.
   recibe `MODEL_DIR` y `LOG_LEVEL` por variables de entorno y se reinicia salvo detención manual.
 - Para probar otro modelo sin reconstruir la imagen se puede montar una carpeta como volumen en `/app/models`.
 
-## 7. Limitaciones y próximos pasos
+## 7. Evidencia de ejecución
+Flujo ejecutado: `export_model` (desde DagsHub) → `dvc add/push` → `pytest` (40 tests OK) → `docker build` → `docker compose up -d` → `POST /predict`.
+
+- Imagen `customer-churn-api:entrega-2`: 659 MB en disco (la mayor parte son scikit-learn, scipy y pandas). Construida con `requirements-api.txt` (24 paquetes, sin MLflow ni DVC).
+- Contenedor `churn-api`: estado `healthy`, puerto `8000`, usuario `appuser`.
+- `GET /health` → 200 `{"status":"ok","model_loaded":true,"model_name":"customer-churn-classifier","model_version":"1"}`.
+- `POST /predict` con `examples/predict_request_valid.json` → 200 `{"prediction":"CHURN","probability":0.7694,"risk_level":"HIGH","model_version":"1",...}`.
+- `POST /predict` con `examples/predict_request_invalid.json` → 422 (`tenure`, `Contract`, `MonthlyCharges`).
+- Modelo cargado: versión 1, run `f8b894e8...` del Model Registry de DagsHub, commit `672d838` (tag `entrega-1`).
+- Logs del contenedor: una línea por predicción con `request_id`, resultado, riesgo, versión y latencia.
+
+## 8. Limitaciones y próximos pasos
 - Una imagen contiene un modelo: cambiar de versión implica reconstruirla (o montar el volumen). En la entrega final se publicará
   en GHCR con tags de versión.
 - No hay autenticación ni límite de uso en la API: queda fuera del alcance académico.
