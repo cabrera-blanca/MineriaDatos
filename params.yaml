@@ -14,8 +14,8 @@ train:
   experiment_name: customer-churn
   registered_model_name: customer-churn-classifier
 
-risk_levels:                       # umbrales de riesgo sobre probabilidad de churn
-  low_max: 0.18                    # = threshold del candidato
+risk_levels:                       # niveles de riesgo sobre la probabilidad de churn
+  # LOW = p < threshold del modelo (el que fija el entrenamiento); HIGH = p >= high_min
   high_min: 0.50
 
 models:
