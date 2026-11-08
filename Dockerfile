@@ -9,7 +9,9 @@ WORKDIR /app
 
 # Dependencias primero: esta capa se reutiliza mientras requirements-api.txt no cambie
 COPY requirements-api.txt .
-RUN pip install --no-cache-dir -r requirements-api.txt
+# Caché de descargas (no queda en la imagen) y timeouts amplios: con redes lentas un corte no obliga a empezar de cero
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --default-timeout=120 --retries=10 -r requirements-api.txt
 
 # Código y modelo (el modelo se obtiene con `dvc pull` o `python -m src.inference.export_model` antes del build)
 COPY src/ ./src/

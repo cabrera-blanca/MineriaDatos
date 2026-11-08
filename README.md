@@ -132,7 +132,7 @@ Los tests de la API y del predictor usan un modelo mínimo entrenado con datos s
 
 ```bash
 dvc pull                        # el build copia models/ dentro de la imagen
-docker build -t customer-churn-api:entrega-2 .
+docker build --load -t customer-churn-api:entrega-2 .
 docker compose up --build       # API en http://localhost:8000 (cambiar con API_PORT en .env)
 docker compose logs -f api      # logs
 docker compose down
