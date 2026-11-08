@@ -14,31 +14,63 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-import joblib
-import mlflow
-import mlflow.sklearn
-import sklearn
-from mlflow import MlflowClient
+# Si el servidor no soporta una consulta, MLflow reintenta durante minutos y parece colgado.
+# Se acotan los reintentos para que cada fuente falle rápido y se pase a la siguiente.
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "1")
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR", "1")
+os.environ.setdefault("MLFLOW_HTTP_REQUEST_TIMEOUT", "30")
+os.environ.setdefault("MLFLOW_DISABLE_AGENT_HINT", "1")
 
-from src.data.split import load_params
-from src.inference.predictor import META_FILE, MODEL_FILE
-from src.training.train import DEFAULT_URI
+import joblib  # noqa: E402
+import mlflow  # noqa: E402
+import mlflow.sklearn  # noqa: E402
+import sklearn  # noqa: E402
+from mlflow import MlflowClient  # noqa: E402
+
+from src.data.split import load_params  # noqa: E402
+from src.inference.predictor import META_FILE, MODEL_FILE  # noqa: E402
+from src.training.train import DEFAULT_URI  # noqa: E402
+
+
+def _download_logged_model(client: MlflowClient, mv, tmp: str):
+    """MLflow 3 guarda el modelo logueado en <experimento>/models/<model_id>/artifacts."""
+    model_id = mv.source.split("models:/")[-1] if mv.source.startswith("models:/m-") else None
+    if model_id is None:
+        raise ValueError("la versión no apunta a un logged model (m-...)")
+    run_root = client.get_run(mv.run_id).info.artifact_uri  # .../<run_id>/artifacts
+    uri = f"{run_root.rsplit('/', 2)[0]}/models/{model_id}/artifacts"
+    return mlflow.artifacts.download_artifacts(artifact_uri=uri, dst_path=tmp)
 
 
 def load_pipeline(client: MlflowClient, mv):
     """Prueba varias fuentes: algunos servidores (p. ej. DagsHub) no resuelven todos los formatos de URI."""
-    sources = [f"models:/{mv.name}/{mv.version}", mv.source, f"runs:/{mv.run_id}/model"]
-    for src in sources:
+    sources = {
+        f"registro (models:/{mv.name}/{mv.version})": lambda: mlflow.sklearn.load_model(f"models:/{mv.name}/{mv.version}"),
+        f"origen de la versión ({mv.source})": lambda: mlflow.sklearn.load_model(mv.source),
+        f"run (runs:/{mv.run_id[:8]}.../model)": lambda: mlflow.sklearn.load_model(f"runs:/{mv.run_id}/model"),
+    }
+    for label, load in sources.items():
+        print(f"Intentando cargar desde {label} ...", flush=True)
         try:
-            pipe = mlflow.sklearn.load_model(src)
-            print(f"Modelo cargado desde: {src}")
+            pipe = load()
+            print("  OK")
             return pipe
         except Exception as e:  # noqa: BLE001
-            print(f"No se pudo cargar desde {src}: {type(e).__name__}")
-    with tempfile.TemporaryDirectory() as tmp:  # último recurso: bajar los artefactos del run
-        local = client.download_artifacts(mv.run_id, "model", tmp)
-        print(f"Modelo cargado desde artefactos del run {mv.run_id}")
-        return mlflow.sklearn.load_model(local)
+            print(f"  falló: {type(e).__name__}", flush=True)
+    for label, download in {
+        "artefactos del logged model": lambda tmp: _download_logged_model(client, mv, tmp),
+        "artefactos del run": lambda tmp: client.download_artifacts(mv.run_id, "model", tmp),
+    }.items():
+        print(f"Intentando bajar {label} ...", flush=True)
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                local = download(tmp)
+                pipe = mlflow.sklearn.load_model(local)
+            print("  OK")
+            return pipe
+        except Exception as e:  # noqa: BLE001
+            print(f"  falló: {type(e).__name__}: {str(e)[:150]}", flush=True)
+    raise SystemExit("No se pudo cargar el modelo desde ninguna fuente. Pegá los mensajes de arriba (sin credenciales).")
 
 
 def main() -> None:
@@ -49,9 +81,13 @@ def main() -> None:
 
     cfg = load_params()
     name = cfg["train"]["registered_model_name"]
-    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", DEFAULT_URI))
+    uri = os.getenv("MLFLOW_TRACKING_URI", DEFAULT_URI)
+    print(f"Conectando a {uri.split('@')[-1]} ...", flush=True)
+    mlflow.set_tracking_uri(uri)
     client = MlflowClient()
+    print(f"Buscando {name} con alias '{args.alias}' ...", flush=True)
     mv = client.get_model_version_by_alias(name, args.alias)
+    print(f"Encontrado: versión {mv.version}, run {mv.run_id}", flush=True)
     if "threshold" not in mv.tags:
         raise SystemExit(f"La versión {mv.version} de {name} no tiene el tag 'threshold'; reentrenar y registrar.")
 
