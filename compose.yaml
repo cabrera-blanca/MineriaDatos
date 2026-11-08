@@ -1,0 +1,15 @@
+services:
+  api:
+    build: .
+    image: customer-churn-api:entrega-2
+    container_name: churn-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      MODEL_DIR: /app/models
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+    # Para probar otro modelo sin reconstruir la imagen, montar una carpeta con
+    # churn_pipeline.joblib y model_meta.json:
+    # volumes:
+    #   - ./models:/app/models:ro

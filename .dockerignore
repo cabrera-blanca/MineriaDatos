@@ -1,0 +1,36 @@
+# Control de versiones y entornos
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+
+# Secretos: nunca deben entrar a la imagen
+.env
+*.env
+.dvc/config.local
+
+# Datos, experimentación y documentación (la API no los necesita)
+data/
+notebooks/
+reports/
+docs/
+metadata/
+examples/
+tests/
+scripts/
+mlruns/
+mlartifacts/
+mlflow.db
+.dvc/
+.dvcignore
+*.dvc
+dvc.yaml
+dvc.lock
+
+# Archivos de Docker
+Dockerfile
+compose.yaml
+.dockerignore

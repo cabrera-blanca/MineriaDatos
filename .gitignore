@@ -14,3 +14,6 @@ mlartifacts/
 /data/scoring/*.csv
 /data/processed/*
 !/data/processed/.gitkeep
+
+# El modelo exportado lo versiona DVC (models.dvc), no Git
+/models
