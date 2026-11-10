@@ -31,7 +31,7 @@ Predice la probabilidad de abandono (`Churn`) de clientes de una telco. Clasific
 ├── params.yaml                     # TODA la configuración (seed, CV, modelos, umbrales)
 ├── dvc.yaml / dvc.lock             # pipeline de datos
 ├── reports/                        # comparación de modelos y figuras del EDA
-├── docs/                           # informe_entrega1.md e informe_entrega2.md
+├── docs/informe_entrega1.md        # resultados y justificación de la selección del modelo
 └── scripts/setup_remotes.sh        # configura DagsHub (DVC remote)
 ```
 (`monitoring/` y `.github/` quedan para la entrega final.)
@@ -116,7 +116,20 @@ curl -X POST http://localhost:8000/predict -H "Content-Type: application/json" -
 
 **Niveles de riesgo** (`params.yaml` + threshold del modelo): `LOW` si p < 0,18 (el modelo no predice churn),
 `MEDIUM` si 0,18 ≤ p < 0,50 y `HIGH` si p ≥ 0,50. `prediction` es `CHURN` cuando el riesgo no es `LOW`.
-Justificación con datos en [docs/informe_entrega2.md](docs/informe_entrega2.md).
+
+*Justificación con datos.* Tasa real de abandono dentro de cada nivel, con probabilidades de validación cruzada sobre
+**train** (el test no se usa para decidir) y, solo como reporte, sobre el test aislado:
+
+| Nivel | Clientes (train, CV) | Abandono real (train, CV) | Clientes (test) | Abandono real (test) |
+|---|---|---|---|---|
+| LOW | 2.733 | 7,4 % | 695 | 8,6 % |
+| MEDIUM | 1.868 | 30,9 % | 462 | 31,8 % |
+| HIGH | 1.033 | 68,2 % | 252 | 65,5 % |
+
+Los niveles ordenan bien el riesgo y se mantienen en el test. Para el límite de HIGH se compararon 0,40 / 0,50 / 0,60 en train:
+con 0,50 la alerta acierta unas 2 de cada 3 veces (68 %) y concentra el 47 % de los abandonos; con 0,60 mejora poco la
+precisión (73 %) pero deja afuera a muchos clientes que sí se van (solo 33 % de los abandonos), y un falso negativo es un
+cliente perdido. El valor se parametriza en `params.yaml` (`risk_levels.high_min`).
 
 Variables de entorno: `MODEL_DIR` (carpeta del modelo, default `models`) y `LOG_LEVEL` (default `INFO`).
 
@@ -146,6 +159,11 @@ trae un `HEALTHCHECK` sobre `/health`. No contiene secretos: `.env`, `.dvc/confi
 ```
 git clone → pip install -r requirements.txt → dvc pull → pytest → docker build → docker compose up → POST /predict → respuesta
 ```
+
+Ejecutado así: en un clon limpio con `dvc pull` pasan los 40 tests; con Docker el contenedor queda `healthy`
+(imagen de unos 660 MB, usuario `appuser`) y `/predict` con `examples/predict_request_valid.json` responde `CHURN`,
+probabilidad 0,7694 y riesgo `HIGH`; con `predict_request_invalid.json` responde 422.
+El modelo cargado es la versión 1 del Model Registry de DagsHub (run `f8b894e8…`, commit `672d838` = tag `entrega-1`).
 
 ## Decisiones de diseño
 
